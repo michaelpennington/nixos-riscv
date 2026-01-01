@@ -5,7 +5,6 @@
   modulesPath,
   ...
 }:
-
 # The cv1813hXXX_milkv_duos_sd.dtb and fip-duos.bin (aka fip.bin) files in
 # the prebuilt/ dir used by this module were generated on Debian via "./build.sh
 # lunch" within a fork of Milk V's duo-buildroot-sdk repo at
@@ -14,26 +13,19 @@
 # down to the kernel and to NixOS and to increase available RAM by changing
 # ION_SIZE.  The cv1813h_milkv_duos_sd.dtc file in the prebuilt/ dir was
 # generated from the cv1813h_milkv_duos_sd.dtb using
-
 # dtc -I dtb  -O dts -o cv1813h_milkv_duos_sd.dts  -@ ~/duo-buildroot-sdk/linux_5.10/build/cv1813h_milkv_duos_sd/arch/riscv/boot/dts/cvitek/cv1813h_milkv_duos_sd.dtb
-
 # The fip.bin file was taken from fsbl/build/cv1813h_milkv_duos_sd/fip.bin
 #
 # The kernel config file was reused from duo256
 #
 # If stage 2 of the boot from SD fails to boot automatically, it can be booted
 # manually. via the U-Boot CLI:
-
 # cv181x_c906# setenv othbootargs ${othbootargs} init=/nix/store/6qq6m4i6zb153nywy5qwr5v33akbzrxk-nixos-system-nixos-24.05.20240215.69c9919/init
 # cv181x_c906# boot
-
 # obviously the /nix/store path might be different, but doing
-
 # cv181x_c906# setenv othbootargs ${othbootargs} boot.shell_on_fail
 # cv181x_c906# boot
-
 # will let you drop into a prompt to find it in /mnt-root/nix/store
-
 let
   duo-buildroot-sdk = pkgs.fetchFromGitHub {
     owner = "milkv-duo";
@@ -53,24 +45,30 @@ let
     (pkgs.linuxManualConfig {
       inherit version src configfile;
       allowImportFromDerivation = true;
-    }).overrideAttrs
-      {
-        preConfigure = ''
-          substituteInPlace arch/riscv/Makefile \
-            --replace '-mno-ldd' "" \
-            --replace 'KBUILD_CFLAGS += -march=$(riscv-march-cflags-y)' \
-                      'KBUILD_CFLAGS += -march=$(riscv-march-cflags-y)_zicsr_zifencei -fno-asynchronous-unwind-tables -fno-unwind-tables' \
-            --replace 'KBUILD_AFLAGS += -march=$(riscv-march-aflags-y)' \
-                      'KBUILD_AFLAGS += -march=$(riscv-march-aflags-y)_zicsr_zifencei'
-          substituteInPlace arch/riscv/mm/context.c \
-            --replace sptbr CSR_SATP
-        '';
-      };
+
+      kernelPatches = let
+        patchDir = ./patches;
+      in
+        map (filename: {
+          name = filename;
+          patch = patchDir + "/${filename}";
+        }) (builtins.attrNames (builtins.readDir patchDir));
+    })
+    .overrideAttrs
+    {
+      preConfigure = ''
+        substituteInPlace arch/riscv/Makefile \
+          --replace '-mno-ldd' "" \
+          --replace 'KBUILD_CFLAGS += -march=$(riscv-march-cflags-y)' \
+                    'KBUILD_CFLAGS += -march=$(riscv-march-cflags-y)_zicsr_zifencei -fno-asynchronous-unwind-tables -fno-unwind-tables' \
+          --replace 'KBUILD_AFLAGS += -march=$(riscv-march-aflags-y)' \
+                    'KBUILD_AFLAGS += -march=$(riscv-march-aflags-y)_zicsr_zifencei'
+        substituteInPlace arch/riscv/mm/context.c \
+          --replace sptbr CSR_SATP
+      '';
+    };
   duo_overlay = import ./overlays/duo.nix;
-
-in
-{
-
+in {
   disabledModules = [
     "profiles/all-hardware.nix"
   ];
@@ -84,7 +82,7 @@ in
     crossSystem.config = "riscv64-unknown-linux-gnu";
     overlays = [
       (final: super: {
-        makeModulesClosure = x: super.makeModulesClosure (x // { allowMissing = true; });
+        makeModulesClosure = x: super.makeModulesClosure (x // {allowMissing = true;});
       })
       duo_overlay
     ];
@@ -126,19 +124,19 @@ in
 
   system.build.dtb =
     pkgs.runCommand "duos.dtb"
-      {
-        nativeBuildInputs = [ pkgs.dtc ];
-      }
-      ''
-        dtc -I dts -O dtb -o "$out" ${pkgs.writeText "duos.dts" ''
-          /include/ "${./prebuilt/cv1813h_milkv_duos_sd.dts}"
-          / {
-            chosen {
-              bootargs = "init=${config.system.build.toplevel}/init ${toString config.boot.kernelParams}";
-            };
+    {
+      nativeBuildInputs = [pkgs.dtc];
+    }
+    ''
+      dtc -I dts -O dtb -o "$out" ${pkgs.writeText "duos.dts" ''
+        /include/ "${./prebuilt/cv1813h_milkv_duos_sd.dts}"
+        / {
+          chosen {
+            bootargs = "init=${config.system.build.toplevel}/init ${toString config.boot.kernelParams}";
           };
-        ''}
-      '';
+        };
+      ''}
+    '';
 
   system.build.its = pkgs.writeText "cv181x.its" ''
     /dts-v1/;
@@ -198,15 +196,15 @@ in
 
   system.build.bootsd =
     pkgs.runCommand "boot.sd"
-      {
-        nativeBuildInputs = [
-          pkgs.ubootTools
-          pkgs.dtc
-        ];
-      }
-      ''
-        mkimage -f ${config.system.build.its} "$out"
-      '';
+    {
+      nativeBuildInputs = [
+        pkgs.ubootTools
+        pkgs.dtc
+      ];
+    }
+    ''
+      mkimage -f ${config.system.build.its} "$out"
+    '';
 
   hardware.enableAllFirmware = false;
 
@@ -248,7 +246,7 @@ in
   services.udev.enable = false;
   services.nscd.enable = false;
   nix.enable = false;
-  system.nssModules = lib.mkForce [ ];
+  system.nssModules = lib.mkForce [];
 
   networking = {
     wireless = {
@@ -347,5 +345,4 @@ in
       cp ${config.system.build.bootsd} firmware/boot.sd
     '';
   };
-
 }
