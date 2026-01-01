@@ -26,7 +26,7 @@
 		phandle = <0x01>;
 	};
 
-	clock-controller {
+	clk: clock-controller {
 		compatible = "cvitek,cv181x-clk";
 		reg = <0x00 0x3002000 0x00 0x1000>;
 		clocks = <0x01>;
@@ -34,7 +34,7 @@
 		phandle = <0x02>;
 	};
 
-	reset-controller {
+	rst: reset-controller {
 		#reset-cells = <0x01>;
 		compatible = "cvitek,reset";
 		reg = <0x00 0x3003000 0x00 0x10>;
@@ -817,6 +817,32 @@
 			size = <0x00 0xaa00000>;
 			phandle = <0x05>;
 		};
+
+    c906_code: rproc {
+      reg = <0x0 0x9fe00000 0x0 0x200000>;
+      no-map;
+    };
+
+    vdev0vring0: vdev0vring0 {
+      compatible = "shared-dma-pool";
+      alloc-ranges = <0x0 0x8f528000 0 0x4000>;
+      size = <0x0 0x4000>;
+      no-map;
+    };
+
+    vdev0vring1: vdev0vring1 {
+      compatible = "shared-dma-pool";
+      alloc-ranges = <0x0 0x8f52C000 0 0x4000>;
+      size = <0x0 0x4000>;
+      no-map;
+    };
+
+    vdev0buffer: vdev0buffer {
+      compatible = "shared-dma-pool";
+      alloc-ranges = <0x0 0x8f530000 0 0x100000>;
+      size = <0x0 0x100000>;
+      no-map;
+    };
 	};
 
 	cvifb {
@@ -870,15 +896,6 @@
 		compatible = "cvitek,cvi_vc_drv";
 		reg = <0x00 0xb030000 0x00 0x100 0x00 0xb058000 0x00 0x100 0x00 0xb050000 0x00 0x400>;
 		reg-names = "vc_ctrl\0vc_sbm\0vc_addr_remap";
-	};
-
-	rtos_cmdqu {
-		compatible = "cvitek,rtos_cmdqu";
-		reg = <0x00 0x1900000 0x00 0x1000>;
-		reg-names = "mailbox";
-		interrupts = <0x65 0x04>;
-		interrupt-names = "mailbox";
-		interrupt-parent = <0x04>;
 	};
 
 	usb@04340000 {
@@ -1006,7 +1023,7 @@
 		compatible = "simple-bus";
 		ranges;
 
-		interrupt-controller@70000000 {
+		plic0: interrupt-controller@70000000 {
 			riscv,ndev = <0x65>;
 			riscv,max-priority = <0x07>;
 			reg-names = "control";
@@ -1040,10 +1057,26 @@
 		reg = <0x00 0x80000000 0x00 0x1fe00000>;
 	};
 
-	fast_image {
-		compatible = "cvitek,rtos_image";
-		reg-names = "rtos_region";
-		reg = <0x00 0x9fe00000 0x00 0x200000>;
-		ion-size = <0x1600000>;
-	};
+  mbox: mbox@0x01900000 {
+    compatible = "cvitek,sg200x-mailbox";
+    reg = <0x0 0x01900000 0x0 0x1000>;
+    reg-names = "mailbox";
+    interrupts      = <101 IRQ_TYPE_LEVEL_HIGH>;
+    interrupt-parent = <&plic0>;
+    status = "okay";
+    #mbox-cells = <4>;
+  };
+
+  cv181x-c906_1 {
+    compatible      = "cvitek,cv181x-c906_1";
+    memory-region   = <&fast_image &vdev0vring0 &vdev0vring1 &vdev0buffer>;
+    firmware        = "c906-mcu.elf";
+    resets          = <&rst RST_C906_1>;
+    reset-names     = "sw_reset";
+    clocks          = <&clk CV181X_CLK_C906_1>;
+    clock-names     = "clk_c906_1";
+    mboxes          = <&mbox 0 CVITEK_MBOX_DIRECTION_TX CVITEK_MBOX_C906_1 1>, <&mbox 1 CVITEK_MBOX_DIRECTION_RX CVITEK_MBOX_C906_1 1>;
+    mbox-names      = "vq_tx", "vq_rx";
+    status          = "okay";
+  };
 };

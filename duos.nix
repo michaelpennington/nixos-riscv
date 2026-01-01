@@ -131,43 +131,40 @@ in {
       dtc -I dts -O dtb -o "$out" ${pkgs.writeText "duos.dts" ''
         /include/ "${./prebuilt/cv1813h_milkv_duos_sd.dts}"
         /* --- START REMOTEOVERLAY --- */
-          / {
-              reserved-memory {
-                  #address-cells = <2>;
-                  #size-cells = <2>;
-                  ranges;
+        / {
+          reserved-memory {
+            #address-cells = <2>;
+            #size-cells = <2>;
+            ranges;
 
-                  /* Reserve 1MB for the Second Core Firmware */
-                  c906_code: c906_code@83f00000 {
-                      compatible = "shared-dma-pool";
-                      reg = <0x0 0x83f00000 0x0 0x100000>;
-                      reusable;
-                  };
+            /* Reserve 1MB for the Second Core Firmware */
+            c906_code: rproc {
+              reg = <0x0 0x9fe00000 0x0 0x200000>;
+              no-map;
+            };
 
-                  /* Reserve buffers for communication (vrings) */
-                  vdev0vring0: vdev0vring0@83e00000 {
-                      compatible = "shared-dma-pool";
-                      reg = <0x0 0x83e00000 0x0 0x40000>;
-                      no-map;
-                  };
-                  vdev0vring1: vdev0vring1@83e40000 {
-                      compatible = "shared-dma-pool";
-                      reg = <0x0 0x83e40000 0x0 0x40000>;
-                      no-map;
-                  };
-                  vdev0buffer: vdev0buffer@83e80000 {
-                      compatible = "shared-dma-pool";
-                      reg = <0x0 0x83e80000 0x0 0x100000>;
-                      no-map;
-                  };
-              };
+            vdev0vring0: vdev0vring0 {
+              compatible = "shared-dma-pool";
+              alloc-ranges = <0x0 0x8f528000 0 0x4000>;
+              size = <0x0 0x4000>;
+              no-map;
+            };
 
-              remoteproc_c906: remoteproc@0 {
-                  compatible = "cvitek,cv181x-remoteproc";
-                  memory-region = <&c906_code>, <&vdev0vring0>, <&vdev0vring1>, <&vdev0buffer>;
-                  status = "okay";
-              };
+            vdev0vring1: vdev0vring1 {
+              compatible = "shared-dma-pool";
+              alloc-ranges = <0x0 0x8f52C000 0 0x4000>;
+              size = <0x0 0x4000>;
+              no-map;
+            };
+
+            vdev0buffer: vdev0buffer {
+              compatible = "shared-dma-pool";
+              alloc-ranges = <0x0 0x8f530000 0 0x100000>;
+              size = <0x0 0x100000>;
+              no-map;
+            };
           };
+        };
           /* --- END REMOTEOVERLAY --- */
         / {
           chosen {
