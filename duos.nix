@@ -130,42 +130,6 @@ in {
     ''
       dtc -I dts -O dtb -o "$out" ${pkgs.writeText "duos.dts" ''
         /include/ "${./prebuilt/cv1813h_milkv_duos_sd.dts}"
-        /* --- START REMOTEOVERLAY --- */
-        / {
-          reserved-memory {
-            #address-cells = <2>;
-            #size-cells = <2>;
-            ranges;
-
-            /* Reserve 1MB for the Second Core Firmware */
-            c906_code: rproc {
-              reg = <0x0 0x9fe00000 0x0 0x200000>;
-              no-map;
-            };
-
-            vdev0vring0: vdev0vring0 {
-              compatible = "shared-dma-pool";
-              alloc-ranges = <0x0 0x8f528000 0 0x4000>;
-              size = <0x0 0x4000>;
-              no-map;
-            };
-
-            vdev0vring1: vdev0vring1 {
-              compatible = "shared-dma-pool";
-              alloc-ranges = <0x0 0x8f52C000 0 0x4000>;
-              size = <0x0 0x4000>;
-              no-map;
-            };
-
-            vdev0buffer: vdev0buffer {
-              compatible = "shared-dma-pool";
-              alloc-ranges = <0x0 0x8f530000 0 0x100000>;
-              size = <0x0 0x100000>;
-              no-map;
-            };
-          };
-        };
-          /* --- END REMOTEOVERLAY --- */
         / {
           chosen {
             bootargs = "init=${config.system.build.toplevel}/init ${toString config.boot.kernelParams}";
