@@ -40,6 +40,24 @@ let
   configfile = pkgs.writeText "milkv-duo-256-linux-config" (
     builtins.readFile ./prebuilt/duo-s-kernel-config.txt
   );
+  aic8800Firmware = pkgs.stdenv.mkDerivation {
+    name = "wlan-aic8800-firmware";
+    src = "${duo-buildroot-sdk}/device/milkv-duos-sd/overlay/mnt/system/firmware/aic8800/";
+    installPhase = ''
+      mkdir -p $out/lib/firmware/aic8800
+      cp $src/fw_patch_table_8800d80_u02.bin $out/lib/firmware/aic8800/
+      cp $src/fw_patch_8800d80_u02.bin $out/lib/firmware/aic8800/
+      cp $src/lmacfw_rf_8800d80_u02.bin $out/lib/firmware/aic8800/
+      cp $src/aic_userconfig_8800d80.txt $out/lib/firmware/aic8800/
+      cp $src/fw_adid_8800d80_u02.bin $out/lib/firmware/aic8800/
+      cp $src/fmacfw_8800d80_u02.bin $out/lib/firmware/aic8800/
+    '';
+  };
+  mcuFirmware = pkgs.runCommand "c906-mcu-firmware" {} ''
+    mkdir -p $out/lib/firmware
+    cp ${./prebuilt/c906-mcu.elf} $out/lib/firmware/c906-mcu.elf
+  '';
+  fwList = [aic8800Firmware mcuFirmware];
 
   kernel =
     (pkgs.linuxManualConfig {
@@ -215,21 +233,7 @@ in {
   # NOTE: setting hardware.firmwareCompression = "none"is required because the aic8800_fdrv driver module cannot load xz compressed files. If set to xz or zstd, adding the aic8800 firmware to hardware.firmware automatically compresses the files, which in turn will make loading the aic8800_fdrv driver module fail.
   hardware.firmwareCompression = "none";
 
-  hardware.firmware = [
-    (pkgs.stdenv.mkDerivation {
-      name = "wlan-aic8800-firmware";
-      src = "${duo-buildroot-sdk}/device/milkv-duos-sd/overlay/mnt/system/firmware/aic8800/";
-      installPhase = ''
-        mkdir -p $out/lib/firmware/aic8800
-        cp $src/fw_patch_table_8800d80_u02.bin $out/lib/firmware/aic8800/
-        cp $src/fw_patch_8800d80_u02.bin $out/lib/firmware/aic8800/
-        cp $src/lmacfw_rf_8800d80_u02.bin $out/lib/firmware/aic8800/
-        cp $src/aic_userconfig_8800d80.txt $out/lib/firmware/aic8800/
-        cp $src/fw_adid_8800d80_u02.bin $out/lib/firmware/aic8800/
-        cp $src/fmacfw_8800d80_u02.bin $out/lib/firmware/aic8800/
-      '';
-    })
-  ];
+  hardware.firmware = fwList;
 
   services.zram-generator = {
     enable = true;
@@ -325,8 +329,9 @@ in {
     usbutils
     inetutils
     iproute2
-    helix
     i2c-tools
+    helix
+    fish
     blink-blue-led
     eza
     duo-pinmux
@@ -339,7 +344,19 @@ in {
 
   sdImage = {
     firmwareSize = 64;
-    populateRootCommands = "";
+    populateRootCommands = let
+      firmwareCombined = pkgs.buildEnv {
+        name = "firmware-combined";
+        paths = fwList;
+        pathsToLink = ["/lib/firmware"];
+        ignoreCollisions = true;
+      };
+    in ''
+      mkdir -pv ./files/lib/firmware
+      cp -rL ${firmwareCombined}/lib/firmware/* ./files/lib/firmware/
+
+      chmod -R u+w ./files/lib/firmware
+    '';
     populateFirmwareCommands = ''
       cp ${./prebuilt/fip-duos.bin}  firmware/fip.bin
       cp ${config.system.build.bootsd} firmware/boot.sd
