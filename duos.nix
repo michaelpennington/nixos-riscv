@@ -112,6 +112,7 @@ in {
     "console=ttyS0,115200"
     "earlycon=sbi"
     "riscv.fwsz=0x80000"
+    "aic8800_fdrv.aicwf_dbg_level=0"
   ];
   boot.consoleLogLevel = 5;
 
